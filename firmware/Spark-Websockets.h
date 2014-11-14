@@ -80,4 +80,5 @@ private:
 
 const char b64Alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
+WebSocketClient client2;
 #endif
