@@ -27,9 +27,9 @@
 #ifndef WEBSOCKETCLIENT_H
 #define WEBSOCKETCLIENT_H
 
-#define HANDSHAKE_WS // uncomment to print out the sent and received handshake messages
-#define TRACE_WS // uncomment to support TRACE level debugging of wire protocol
-#define DEBUG_WS // turn on debugging
+//#define HANDSHAKE_WS // uncomment to print out the sent and received handshake messages
+//#define TRACE_WS // uncomment to support TRACE level debugging of wire protocol
+//#define DEBUG_WS // turn on debugging
 
 #define RETRY_TIMEOUT 3000
 
@@ -80,5 +80,4 @@ private:
 
 const char b64Alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-WebSocketClient client2;
 #endif

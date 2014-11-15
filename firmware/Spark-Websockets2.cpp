@@ -75,14 +75,9 @@
 #include <string.h>
 
 
-
-
-
-
-
-//#define HANDSHAKE
-//#define DEBUG
-//#define TRACE
+#define LOG_HANDSHAKE
+#define LOG_DEBUG
+#define LOG_TRACE
 
 
 const char *WebSocketClientStringTable = {
@@ -114,7 +109,7 @@ void WebSocketClient::reconnect() {
   }
   if(!result) {
     
-#ifdef DEBUG
+#ifdef LOG_DEBUG
     Serial.println("Connection Failed!");
 #endif
     if(_onError != NULL) {
@@ -140,7 +135,7 @@ byte WebSocketClient::nextByte() {
   while(_client.available() == 0);
   byte b = _client.read();
   
-#ifdef DEBUG
+#ifdef LOG_DEBUG
   if(b < 0) {
     Serial.println("Internal Error in Ethernet Client Library (-1 returned where >= 0 expected)");
   }
@@ -171,14 +166,14 @@ void WebSocketClient::monitor () {
     byte hdr = nextByte();
     bool fin = hdr & 0x80;
     
-#ifdef TRACE
+#ifdef LOG_TRACE
  Serial.print("fin = ");
  Serial.println(fin);
 #endif
     
     int opCode = hdr & 0x0F;
     
-#ifdef TRACE
+#ifdef LOG_TRACE
 Serial.print("op = ");
 Serial.println(opCode);
 #endif
@@ -198,7 +193,7 @@ Serial.println(opCode);
       }
     }
     
-#ifdef TRACE
+#ifdef LOG_TRACE
 Serial.print("len = ");
 Serial.println(len);
 #endif
@@ -211,7 +206,7 @@ Serial.println(len);
     
     if(mask) {
       
-#ifdef DEBUG
+#ifdef LOG_DEBUG
 Serial.println("Masking not yet supported (RFC 6455 section 5.3)");
 #endif
       
@@ -277,7 +272,7 @@ Serial.println("Masking not yet supported (RFC 6455 section 5.3)");
     switch(opCode) {
       case 0x00:
         
-#ifdef DEBUG
+#ifdef LOG_DEBUG
 	Serial.println("Unexpected Continuation OpCode");
 #endif
         
@@ -285,7 +280,7 @@ Serial.println("Masking not yet supported (RFC 6455 section 5.3)");
         
       case 0x01:
         
-#ifdef DEBUG
+#ifdef LOG_DEBUG
 	Serial.print("onMessage: data = ");
 	Serial.println(_packet);
 #endif
@@ -297,7 +292,7 @@ Serial.println("Masking not yet supported (RFC 6455 section 5.3)");
         
       case 0x02:
         
-#ifdef DEBUG
+#ifdef LOG_DEBUG
 Serial.println("Binary messages not yet supported (RFC 6455 section 5.6)");
 #endif
         
@@ -308,7 +303,7 @@ Serial.println("Binary messages not yet supported (RFC 6455 section 5.6)");
         
       case 0x09:
         
-#ifdef DEBUG
+#ifdef LOG_DEBUG
 	Serial.print("onPing");
 #endif
         
@@ -318,7 +313,7 @@ Serial.println("Binary messages not yet supported (RFC 6455 section 5.6)");
         
       case 0x0A:
         
-#ifdef DEBUG
+#ifdef LOG_DEBUG
 	Serial.print("onPong");
 #endif
         
@@ -328,7 +323,7 @@ Serial.println("Binary messages not yet supported (RFC 6455 section 5.6)");
         
         unsigned int code = ((byte)_packet[0] << 8) + (byte)_packet[1];
         
-#ifdef DEBUG
+#ifdef LOG_DEBUG
 		Serial.print("onClose: code = ");
 		Serial.print(code);
 		Serial.print("; message = ");
@@ -379,14 +374,14 @@ void WebSocketClient::sendHandshake(const char* hostname, const char* path, cons
 	Serial.println(_key);
 
 	_client.print(handshake); 
-#ifdef HANDSHAKE
+#ifdef LOG_HANDSHAKE
   Serial.println(handshake);
   Serial.println("Handshake sent");
 #endif
 }
 
 bool WebSocketClient::readHandshake() {
-#ifdef HANDSHAKE
+#ifdef LOG_HANDSHAKE
 	  Serial.println("Reading handshake!");
 #endif
   bool result = true;//must be false to really check the handshake
@@ -403,7 +398,7 @@ bool WebSocketClient::readHandshake() {
   
   while(true) {
       readLine(line); 
-#ifdef HANDSHAKE
+#ifdef LOG_HANDSHAKE
       Serial.println(line);
 #endif
 
@@ -416,7 +411,7 @@ bool WebSocketClient::readHandshake() {
   }
 
   if(!result) {
-#ifdef DEBUG
+#ifdef LOG_DEBUG
 Serial.println("Handshake Failed! Terminating");
 #endif
     _client.stop();
