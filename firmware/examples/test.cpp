@@ -1,4 +1,4 @@
-#include "Spark-Websockets/Spark-Websockets.h"
+#include "Spark-Websockets2/Spark-Websockets.h"
 
 WebSocketClient client;
 char server[] = "echo.websocket.org";
