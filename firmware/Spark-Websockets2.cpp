@@ -107,7 +107,11 @@ void WebSocketClient::connect(const char hostname[], int port, const char protoc
 void WebSocketClient::reconnect() {
   bool result = false;
   #ifdef LOG_DEBUG
-    Serial.println("WebSocketClient::reconnect(%s, %d", _hostname, _port);
+    Serial.print("WebSocketClient::reconnect(");
+    Serial.print(_hostname);
+    Serial.print(", ");
+    Serial.print(_port);
+    Serial.println(")");
   #endif
   if (_client.connect(_hostname, _port)) {
     sendHandshake(_hostname, _path, _protocol);
