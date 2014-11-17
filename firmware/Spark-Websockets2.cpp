@@ -91,14 +91,29 @@ const char *WebSocketClientStringTable = {
 			"\x0d\x0a"};
 
 
+void ipArrayFromString(byte ipArray[], String ipString) {
+  int dot1 = ipString.indexOf('.');
+  ipArray[0] = ipString.substring(0, dot1).toInt();
+  int dot2 = ipString.indexOf('.', dot1 + 1);
+  ipArray[1] = ipString.substring(dot1 + 1, dot2).toInt();
+  dot1 = ipString.indexOf('.', dot2 + 1);
+  ipArray[2] = ipString.substring(dot2 + 1, dot1).toInt();
+  ipArray[3] = ipString.substring(dot1 + 1).toInt();
+}
 
-void WebSocketClient::connect(const char hostname[], int port, const char protocol[], const char path[]) {
+void WebSocketClient::connect(const char hostname[], int port, bool isIP, const char protocol[], const char path[]) {
   _hostname = hostname;
   _port = port;
   _protocol = protocol;
   _path = path;
   _retryTimeout = millis();
   _canConnect = true;
+  _isIP = isIP;
+
+  if ( _isIP ) {
+    ipArrayFromString(_serverAddress, hostname);
+  }
+
   #ifdef LOG_DEBUG
     Serial.println("WebSocketClient::connect(...) DEBUG ENABLED");
   #endif
@@ -113,7 +128,13 @@ void WebSocketClient::reconnect() {
     Serial.print(_port);
     Serial.println(")");
   #endif
-  if (_client.connect(_hostname, _port)) {
+  int res = 0;
+  if ( _isIP ) {
+    res = _client.connect(_serverAddress, _port);
+  } else {
+    res = _client.connect(_hostname, _port);
+  }
+  if (res > 0) {
     sendHandshake(_hostname, _path, _protocol);
     result = readHandshake();
   }
