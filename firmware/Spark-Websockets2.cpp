@@ -1,19 +1,17 @@
 /*
- WebsocketClient, a websocket client for Spark Core based on Arduino websocket client
+ WebsocketClient, a websocket client for Arduino
  Copyright 2011 Kevin Rohling
  Copyright 2012 Ian Moore
- Copyright 2014 Ivan Davletshin
- 
+ http://kevinrohling.com
+ http://www.incamoon.com
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
  in the Software without restriction, including without limitation the rights
  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  copies of the Software, and to permit persons to whom the Software is
  furnished to do so, subject to the following conditions:
- 
  The above copyright notice and this permission notice shall be included in
  all copies or substantial portions of the Software.
- 
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -65,82 +63,59 @@
  * IF IBM IS APPRISED OF THE POSSIBILITY OF SUCH DAMAGES.
  */
 
-#include "spark_wiring_usbserial.h"
-#include "spark_wiring_string.h"
+#define HANDSHAKE // uncomment to print out the sent and received handshake messages
+#define TRACE // uncomment to support TRACE level debugging of wire protocol
+#define DEBUGGING // turn on debugging
 
 #include "Spark-Websockets2.h"
-#include <stdlib.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
+// #include <stdlib.h>
+// #include <stdarg.h>
+// #include <stdlib.h>
+// #include <string.h>
+
+//char *stringVar = "{0}";
 
 
-#define LOG_HANDSHAKE
-#define LOG_DEBUG
-#define LOG_TRACE
-
-
-const char *WebSocketClientStringTable = {
-			"GET {0} HTTP/1.1\x0d\x0a"
-			"Upgrade: websocket\x0d\x0a"
-			"Connection: Upgrade\x0d\x0a"
-			"Host: {1}:{2}\x0d\x0a"
-			"Origin: SparkWebSocketClient\x0d\x0a"
-			"Sec-WebSocket-Key:  1VTFj/CydlBCZDucDqw8eA==\x0d\x0a"
-			"Sec-WebSocket-Version: 13\x0d\x0a"
-			"\x0d\x0a"};
-
-
-void ipArrayFromString(byte ipArray[], String ipString) {
-  int dot1 = ipString.indexOf('.');
-  ipArray[0] = ipString.substring(0, dot1).toInt();
-  int dot2 = ipString.indexOf('.', dot1 + 1);
-  ipArray[1] = ipString.substring(dot1 + 1, dot2).toInt();
-  dot1 = ipString.indexOf('.', dot2 + 1);
-  ipArray[2] = ipString.substring(dot2 + 1, dot1).toInt();
-  ipArray[3] = ipString.substring(dot1 + 1).toInt();
-}
-
-void WebSocketClient::connect(const char hostname[], int port, bool isIP, const char protocol[], const char path[]) {
+void WebSocketClient::connect(const char hostname[], int port, const char protocol[], const char path[]) {
   _hostname = hostname;
   _port = port;
   _protocol = protocol;
   _path = path;
   _retryTimeout = millis();
   _canConnect = true;
-  _isIP = isIP;
-
-  if ( _isIP ) {
-    ipArrayFromString(_serverAddress, hostname);
-  }
-
-  #ifdef LOG_DEBUG
-    Serial.println("WebSocketClient::connect(...) DEBUG ENABLED");
-  #endif
 }
+
 
 void WebSocketClient::reconnect() {
   bool result = false;
-  #ifdef LOG_DEBUG
-    Serial.print("WebSocketClient::reconnect(");
-    Serial.print(_hostname);
-    Serial.print(", ");
-    Serial.print(_port);
-    Serial.println(")");
-  #endif
-  int res = 0;
-  if ( _isIP ) {
-    res = _client.connect(_serverAddress, _port);
-  } else {
-    res = _client.connect(_hostname, _port);
+  bool isconnected = false;
+    #ifdef DEBUGGING
+      Serial.println("Connecting...");
+    #endif
+  //byte server[] = { 192, 168, 1, 100 };
+  int i, count;
+  for (i=0, count=0; _hostname[i]; i++)
+    count += (_hostname[i] == '.');
+  if (count == 3)
+  {
+    byte ip[4];
+    sscanf(_hostname, "%hu.%hu.%hu.%hu", &ip[0], &ip[1], &ip[2], &ip[3]);
+    isconnected = _client.connect(ip, _port);
   }
-  if (res > 0) {
+  else
+  {
+    isconnected = _client.connect(_hostname, _port);
+  }
+  if(isconnected)
+  {
+      #ifdef DEBUGGING
+        Serial.println("Connected, sending handshake.");
+      #endif
     sendHandshake(_hostname, _path, _protocol);
     result = readHandshake();
   }
   if(!result) {
-    
-#ifdef LOG_DEBUG
+#ifdef DEBUGGING
     Serial.println("Connection Failed!");
 #endif
     if(_onError != NULL) {
@@ -165,50 +140,57 @@ void WebSocketClient::disconnect() {
 byte WebSocketClient::nextByte() {
   while(_client.available() == 0);
   byte b = _client.read();
-  
-#ifdef LOG_DEBUG
+
+#ifdef DEBUGGING
   if(b < 0) {
     Serial.println("Internal Error in Ethernet Client Library (-1 returned where >= 0 expected)");
   }
 #endif
-  
+
   return b;
 }
 
 void WebSocketClient::monitor () {
-  
+
   if(!_canConnect) {
+    Serial.println("@@@ cannot connect");
     return;
   }
-  
+
   if(_reconnecting) {
+    Serial.println("@@@ reconnecting");
     return;
   }
-  
+
   if(!connected() && millis() > _retryTimeout) {
     _retryTimeout = millis() + RETRY_TIMEOUT;
     _reconnecting = true;
+    Serial.println("@@@ websocket: reconnecting...");
     reconnect();
     _reconnecting = false;
     return;
   }
-  
-	if (_client.available() > 2) {
+
+  // Serial.println(_client.available());
+
+  if (_client.available() > 2) {
+    Serial.print("+");
+
     byte hdr = nextByte();
     bool fin = hdr & 0x80;
-    
-#ifdef LOG_TRACE
+
+#ifdef TRACE
  Serial.print("fin = ");
  Serial.println(fin);
 #endif
-    
+
     int opCode = hdr & 0x0F;
-    
-#ifdef LOG_TRACE
+
+#ifdef TRACE
 Serial.print("op = ");
 Serial.println(opCode);
 #endif
-    
+
     hdr = nextByte();
     bool mask = hdr & 0x80;
     int len = hdr & 0x7F;
@@ -223,31 +205,31 @@ Serial.println(opCode);
         len += nextByte();
       }
     }
-    
-#ifdef LOG_TRACE
+
+#ifdef TRACE
 Serial.print("len = ");
 Serial.println(len);
 #endif
-    
+
     if(mask) { // skipping 4 bytes for now.
       for(int i = 0; i < 4; i++) {
         nextByte();
       }
     }
-    
+
     if(mask) {
-      
-#ifdef LOG_DEBUG
+
+#ifdef DEBUGGING
 Serial.println("Masking not yet supported (RFC 6455 section 5.3)");
 #endif
-      
+
       if(_onError != NULL) {
         _onError(*this, "Masking not supported");
       }
       free(_packet);
       return;
     }
-    
+
     if(!fin) {
       if(_packet == NULL) {
         _packet = (char*) malloc(len);
@@ -261,7 +243,7 @@ Serial.println("Masking not yet supported (RFC 6455 section 5.3)");
         _packetLength += len;
         char *temp = _packet;
         _packet = (char*)malloc(_packetLength);
-        for(int i = 0; i < _packetLength; i++) {
+        for(int i = 0; i < copyLen; i++) {
           if(i < copyLen) {
             _packet[i] = temp[i];
           } else {
@@ -272,7 +254,7 @@ Serial.println("Masking not yet supported (RFC 6455 section 5.3)");
       }
       return;
     }
-    
+
     if(_packet == NULL) {
       _packet = (char*) malloc(len + 1);
       for(int i = 0; i < len; i++) {
@@ -294,80 +276,81 @@ Serial.println("Masking not yet supported (RFC 6455 section 5.3)");
       _packet[_packetLength] = 0x0;
       free(temp);
     }
-    
+
     if(opCode == 0 && _opCode > 0) {
       opCode = _opCode;
       _opCode = 0;
     }
-    
+
     switch(opCode) {
       case 0x00:
-        
-#ifdef LOG_DEBUG
-	Serial.println("Unexpected Continuation OpCode");
+
+#ifdef DEBUGGING
+  Serial.println("Unexpected Continuation OpCode");
 #endif
-        
+
         break;
-        
+
       case 0x01:
-        
-#ifdef LOG_DEBUG
-	Serial.print("onMessage: data = ");
-	Serial.println(_packet);
+
+#ifdef DEBUGGING
+  Serial.print("onMessage: data = ");
+  Serial.println(_packet);
 #endif
-        
+
         if (_onMessage != NULL) {
           _onMessage(*this, _packet);
         }
         break;
-        
+
       case 0x02:
-        
-#ifdef LOG_DEBUG
+
+#ifdef DEBUGGING
 Serial.println("Binary messages not yet supported (RFC 6455 section 5.6)");
 #endif
-        
+
         if(_onError != NULL) {
           _onError(*this, "Binary Messages not supported");
         }
         break;
-        
+
       case 0x09:
-        
-#ifdef LOG_DEBUG
-	Serial.print("onPing");
+
+#ifdef DEBUGGING
+  Serial.print(".");
 #endif
-        
-	    _client.write(0x8A);
+
+        _client.write(0x8A);
+        // _client.write(0x8A);//_client.write(0x09);//0x0A; - pong
         _client.write(byte(0x00));
         break;
-        
+
       case 0x0A:
-        
-#ifdef LOG_DEBUG
-	Serial.print("onPong");
+
+#ifdef DEBUGGING
+  Serial.print("onPong");
 #endif
-        
+
         break;
-        
+
       case 0x08:
-        
+
         unsigned int code = ((byte)_packet[0] << 8) + (byte)_packet[1];
-        
-#ifdef LOG_DEBUG
-		Serial.print("onClose: code = ");
-		Serial.print(code);
-		Serial.print("; message = ");
-		Serial.println((_packet + 2));
+
+#ifdef DEBUGGING
+    Serial.print("onClose code=");
+    Serial.println(code);
+    //Serial.print(" message = ");
+    //Serial.print(message);
 #endif
-        
+
         if(_onClose != NULL) {
           _onClose(*this, code, (_packet + 2));
         }
         _client.stop();
         break;
     }
-    
+
     free(_packet);
     _packet = NULL;
   }
@@ -391,45 +374,39 @@ void WebSocketClient::onError(OnError fn) {
 
 
 void WebSocketClient::sendHandshake(const char* hostname, const char* path, const char* protocol) {
-	Serial.println("Sending handshake!");  
-	String handshake = "";
+    Serial.println("Sending handshake!");
 
-	handshake.concat(WebSocketClientStringTable);
+WebSocketClientStringTable.replace("{0}", hostname);
+String strport = String(_port);
+WebSocketClientStringTable.replace("{1}", strport);
 
-	handshake.replace("{0}",path);
-	handshake.replace("{1}",hostname);
-	handshake.replace("{2}",(const char*)_port);
-
-	//trying to generate hash, now - fails.
-	generateHash(_key,45);
-	Serial.println(_key);
-
-	_client.print(handshake); 
-#ifdef LOG_HANDSHAKE
-  Serial.println(handshake);
+  _client.print(WebSocketClientStringTable);
+#ifdef HANDSHAKE
+  Serial.println(WebSocketClientStringTable);
   Serial.println("Handshake sent");
 #endif
 }
 
 bool WebSocketClient::readHandshake() {
-#ifdef LOG_HANDSHAKE
-	  Serial.println("Reading handshake!");
+#ifdef HANDSHAKE
+    Serial.println("Reading handshake!");
 #endif
-  bool result = true;//must be false to really check the handshake
+  bool result = true;
   char line[128];
   int maxAttempts = 300, attempts = 0;
   //char response;
   //response = reinterpret_cast<char>(WebSocketClientStringTable[9]);
-  
+
   while(_client.available() == 0 && attempts < maxAttempts)
   {
     delay(50);
     attempts++;
   }
-  
+
   while(true) {
-      readLine(line); 
-#ifdef LOG_HANDSHAKE
+      readLine(line);
+#ifdef HANDSHAKE
+      Serial.print("handshake rcvd line: ");
       Serial.println(line);
 #endif
 
@@ -438,28 +415,29 @@ bool WebSocketClient::readHandshake() {
     }
     if(strncmp(line, "1VTFj/CydlBCZDucDqw8eA==", 12) == 0) {
       result = true;
-    }  
+    }
   }
 
   if(!result) {
-#ifdef LOG_DEBUG
+#ifdef DEBUGGING
 Serial.println("Handshake Failed! Terminating");
 #endif
     _client.stop();
   }
   else
-	{
-	  Serial.println("Handshake Ok!");
-	}
+  {
+    Serial.println("Handshake Ok!");
+  }
   return result;
 }
 
 void WebSocketClient::readLine(char* buffer) {
   char character;
-  
+
   int i = 0;
   while(_client.available() > 0 && (character = _client.read()) != '\n') {
     if (character != '\r' && character != -1) {
+    //Serial.print(character);
       buffer[i++] = character;
     }
   }
@@ -483,69 +461,72 @@ bool WebSocketClient::send (char* message) {
     _client.write((byte)0x00); // use 0x00 for mask bytes which is effectively a NOOP
   }
   _client.print(message);
+#ifdef TRACE
+  Serial.print("message sent: ");
+  Serial.print(_client.connected());  // STOPPED HERE, STILL TRUE (1) WHEN PING BREAKS!!!
   Serial.println(message);
+#endif
   return true;
 }
 
 
 size_t WebSocketClient::base64Encode(byte* src, size_t srclength, char* target, size_t targsize) {
 
-/*  
   size_t datalength = 0;
-	char input[3];
-	char output[4];
-	size_t i;
-  
-	while (2 < srclength) {
-		input[0] = *src++;
-		input[1] = *src++;
-		input[2] = *src++;
-		srclength -= 3;
-    
-		output[0] = input[0] >> 2;
-		output[1] = ((input[0] & 0x03) << 4) + (input[1] >> 4);
-		output[2] = ((input[1] & 0x0f) << 2) + (input[2] >> 6);
-		output[3] = input[2] & 0x3f;
-    
-		if (datalength + 4 > targsize) {
-			return (-1);
+  char input[3];
+  char output[4];
+  size_t i;
+
+  while (2 < srclength) {
+    input[0] = *src++;
+    input[1] = *src++;
+    input[2] = *src++;
+    srclength -= 3;
+
+    output[0] = input[0] >> 2;
+    output[1] = ((input[0] & 0x03) << 4) + (input[1] >> 4);
+    output[2] = ((input[1] & 0x0f) << 2) + (input[2] >> 6);
+    output[3] = input[2] & 0x3f;
+
+    if (datalength + 4 > targsize) {
+      return (-1);
     }
-    
-		target[datalength++] = b64Alphabet[output[0]];
-		target[datalength++] = b64Alphabet[output[1]];
-		target[datalength++] = b64Alphabet[output[2]];
-		target[datalength++] = b64Alphabet[output[3]];
-	}
-  
-  // Padding
-	if (0 != srclength) {
-		input[0] = input[1] = input[2] = '\0';
-		for (i = 0; i < srclength; i++) {
-			input[i] = *src++;
-    }
-    
-		output[0] = input[0] >> 2;
-		output[1] = ((input[0] & 0x03) << 4) + (input[1] >> 4);
-		output[2] = ((input[1] & 0x0f) << 2) + (input[2] >> 6);
-    
-		if (datalength + 4 > targsize) {
-			return (-1);
-    }
-    
-		target[datalength++] = b64Alphabet[output[0]];
-		target[datalength++] = b64Alphabet[output[1]];
-		if (srclength == 1) {
-			target[datalength++] = '=';
-    } else {
-			target[datalength++] = b64Alphabet[output[2]];
-    }
-		target[datalength++] = '=';
-	}
-	if (datalength >= targsize) {
-		return (-1);
+
+    target[datalength++] = b64Alphabet[output[0]];
+    target[datalength++] = b64Alphabet[output[1]];
+    target[datalength++] = b64Alphabet[output[2]];
+    target[datalength++] = b64Alphabet[output[3]];
   }
-	target[datalength] = '\0';
-	return (datalength);*/
+
+  // Padding
+  if (0 != srclength) {
+    input[0] = input[1] = input[2] = '\0';
+    for (i = 0; i < srclength; i++) {
+      input[i] = *src++;
+    }
+
+    output[0] = input[0] >> 2;
+    output[1] = ((input[0] & 0x03) << 4) + (input[1] >> 4);
+    output[2] = ((input[1] & 0x0f) << 2) + (input[2] >> 6);
+
+    if (datalength + 4 > targsize) {
+      return (-1);
+    }
+
+    target[datalength++] = b64Alphabet[output[0]];
+    target[datalength++] = b64Alphabet[output[1]];
+    if (srclength == 1) {
+      target[datalength++] = '=';
+    } else {
+      target[datalength++] = b64Alphabet[output[2]];
+    }
+    target[datalength++] = '=';
+  }
+  if (datalength >= targsize) {
+    return (-1);
+  }
+  target[datalength] = '\0';
+  return (datalength);
 }
 
 void WebSocketClient::generateHash(char buffer[], size_t bufferlen) {
