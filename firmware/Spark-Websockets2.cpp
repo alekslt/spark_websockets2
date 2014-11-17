@@ -99,10 +99,16 @@ void WebSocketClient::connect(const char hostname[], int port, const char protoc
   _path = path;
   _retryTimeout = millis();
   _canConnect = true;
+  #ifdef LOG_DEBUG
+    Serial.println("WebSocketClient::connect(...) DEBUG ENABLED");
+  #endif
 }
 
 void WebSocketClient::reconnect() {
   bool result = false;
+  #ifdef LOG_DEBUG
+    Serial.println("WebSocketClient::reconnect(%s, %d", _hostname, _port);
+  #endif
   if (_client.connect(_hostname, _port)) {
     sendHandshake(_hostname, _path, _protocol);
     result = readHandshake();
