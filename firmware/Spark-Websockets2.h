@@ -38,6 +38,7 @@
 
 class WebSocketClient {
 public:
+  WebSocketClient();
   typedef void (*OnMessage)(WebSocketClient client, char* message);
   typedef void (*OnOpen)(WebSocketClient client);
   typedef void (*OnClose)(WebSocketClient client, int code, char* message);
@@ -54,7 +55,7 @@ public:
   bool send(char* message);
 private:
 String WebSocketClientStringTable = {
-      "GET {3} HTTP/1.1\x0d\x0a"//, //"GET {0} HTTP/1.1",
+      "GET {2} HTTP/1.1\x0d\x0a"//, //"GET {0} HTTP/1.1",
       "Upgrade: websocket\x0d\x0a"//,
       "Connection: Upgrade\x0d\x0a"//,
       "Host: {0}:{1}\x0d\x0a"//,//"Host: {0}",
@@ -87,8 +88,9 @@ String WebSocketClientStringTable = {
   void generateHash(char* buffer, size_t bufferlen);
   size_t base64Encode(byte* src, size_t srclength, char* target, size_t targetsize);
   byte nextByte();
-
-
+  unsigned long _lastSendTime;
+  unsigned long _pingInterval;
+  bool _isConfigured;
 };
 
 const char b64Alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

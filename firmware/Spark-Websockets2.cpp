@@ -75,6 +75,11 @@
 
 //char *stringVar = "{0}";
 
+WebSocketClient::WebSocketClient() {
+  _lastSendTime = 0;
+  _pingInterval = 20000;
+  _isConfigured = false;
+}
 
 void WebSocketClient::connect(const char hostname[], int port, const char protocol[], const char path[]) {
   _hostname = hostname;
@@ -83,6 +88,7 @@ void WebSocketClient::connect(const char hostname[], int port, const char protoc
   _path = path;
   _retryTimeout = millis();
   _canConnect = true;
+  _isConfigured = true;
 }
 
 
@@ -151,6 +157,9 @@ byte WebSocketClient::nextByte() {
 }
 
 void WebSocketClient::monitor () {
+  if(!_isConfigured) {
+    return;
+  }
 
   if(!_canConnect) {
     Serial.println("@@@ cannot connect");
@@ -354,6 +363,15 @@ Serial.println("Binary messages not yet supported (RFC 6455 section 5.6)");
     free(_packet);
     _packet = NULL;
   }
+
+  if ( connected() && millis() - _lastSendTime >= _pingInterval) {
+    #ifdef DEBUGGING
+    Serial.print("Sending ping to server: ");
+    Serial.println(micros());
+    #endif
+    send("2");
+    _lastSendTime = millis();
+  }
 }
 
 void WebSocketClient::onMessage(OnMessage fn) {
@@ -380,7 +398,7 @@ WebSocketClientStringTable.replace("{0}", hostname);
 String strport = String(_port);
 WebSocketClientStringTable.replace("{1}", strport);
 
-WebSocketClientStringTable.replace("{3}", path);
+WebSocketClientStringTable.replace("{2}", path);
 
   _client.print(WebSocketClientStringTable);
 #ifdef HANDSHAKE
@@ -430,6 +448,8 @@ Serial.println("Handshake Failed! Terminating");
   {
     Serial.println("Handshake Ok!");
   }
+
+  _lastSendTime = millis();
   return result;
 }
 
@@ -468,6 +488,8 @@ bool WebSocketClient::send (char* message) {
   Serial.print(_client.connected());  // STOPPED HERE, STILL TRUE (1) WHEN PING BREAKS!!!
   Serial.println(message);
 #endif
+
+  _lastSendTime = millis();
   return true;
 }
 
