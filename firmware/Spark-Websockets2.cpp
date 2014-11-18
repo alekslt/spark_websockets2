@@ -380,6 +380,8 @@ WebSocketClientStringTable.replace("{0}", hostname);
 String strport = String(_port);
 WebSocketClientStringTable.replace("{1}", strport);
 
+WebSocketClientStringTable.replace("{3}", path);
+
   _client.print(WebSocketClientStringTable);
 #ifdef HANDSHAKE
   Serial.println(WebSocketClientStringTable);
